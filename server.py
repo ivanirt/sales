@@ -8,6 +8,7 @@ stays in memory/settings.json.
 from __future__ import annotations
 
 import json
+import os
 import re
 import ssl
 import threading
@@ -28,8 +29,6 @@ DELIM = "\n§\n"
 USER_LIMIT = 1375
 MEMORY_LIMIT = 2200
 ENTRY_CAP = 600
-HOST = "127.0.0.1"
-PORT = 8765
 
 STAGES = {"cold", "email", "call", "prospect", "next", "offer", "close", "sale", "retain", "revenue"}
 LOCK = threading.Lock()
@@ -133,11 +132,20 @@ def state_path(project_id: str) -> Path:
 
 def load_settings() -> dict:
     data = read_json(SETTINGS_PATH, {})
-    return {
+    settings = {
         "apiKey": str(data.get("apiKey") or ""),
         "baseUrl": str(data.get("baseUrl") or "https://api.openai.com/v1").rstrip("/"),
         "model": str(data.get("model") or "gpt-4o-mini"),
     }
+    # Dokploy env wins over the file so a redeploy can rotate the key
+    # without baking it into the image.
+    if os.environ.get("AI_API_KEY"):
+        settings["apiKey"] = os.environ["AI_API_KEY"].strip()
+    if os.environ.get("AI_BASE_URL"):
+        settings["baseUrl"] = os.environ["AI_BASE_URL"].strip().rstrip("/")
+    if os.environ.get("AI_MODEL"):
+        settings["model"] = os.environ["AI_MODEL"].strip()[:80]
+    return settings
 
 
 def public_settings(settings: dict) -> dict:
@@ -524,6 +532,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
+        if path == "/api/health":
+            self.send_json({"ok": True})
+            return
         if path == "/api/bootstrap":
             self.send_json(bootstrap())
             return
@@ -680,9 +691,11 @@ def allowed_base(base: str) -> bool:
 
 
 def main() -> None:
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8765"))
     load_index()
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"Funnel is at http://{HOST}:{PORT}")
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"Funnel is listening on {host}:{port}", flush=True)
     server.serve_forever()
 
 

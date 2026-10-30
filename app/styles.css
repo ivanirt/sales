@@ -138,19 +138,105 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 18px;
 }
 
-.coach-figure {
-  width: 64px;
-  height: 64px;
+.buddy {
+  width: 96px;
+  height: 108px;
   flex: none;
+  display: grid;
+  place-items: end center;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 38%, #fff8ee 0%, #f6e4cc 72%, transparent 73%);
+}
+
+.coach-figure {
+  width: 96px;
+  height: 108px;
+  overflow: visible;
+}
+
+.ground { fill: #1c1915; opacity: 0.12; }
+.dots { opacity: 0; }
+.mouth-soft, .mouth-o { opacity: 0; }
+.mouth-smile { opacity: 1; }
+
+.arm-wave, .arm-point, .head, .coach-body, .eye, .dot {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .coach-figure { animation: bob 3.4s ease-in-out infinite; }
+  .coach-body { animation: bob 2.8s ease-in-out infinite; }
+  .eye { animation: blink 5s infinite; }
+
+  .buddy-hello .arm-wave { animation: wave 1.15s ease-in-out infinite; }
+  .buddy-hello .coach-body { animation: bob 2.8s ease-in-out infinite; }
+
+  .buddy-point .arm-point { animation: point 1.3s ease-in-out infinite; }
+  .buddy-nudge .head { animation: tilt 2.4s ease-in-out infinite; }
+  .buddy-nudge .brow-right { transform: translateY(-2px); }
+
+  .buddy-cheer .coach-body { animation: hop 0.7s ease-in-out infinite; }
+  .buddy-cheer .arm-wave,
+  .buddy-cheer .arm-point { animation: raise 0.7s ease-in-out infinite; }
+
+  .buddy-think .dots { animation: pop 1.4s ease-in-out infinite; }
+  .buddy-think .head { animation: tilt 2.2s ease-in-out infinite; }
+  .buddy-think .arm-wave { animation: chin 2.2s ease-in-out infinite; }
 }
+
+.buddy-think .mouth-smile,
+.buddy-nudge .mouth-smile { opacity: 0; }
+.buddy-think .mouth-soft,
+.buddy-nudge .mouth-soft { opacity: 1; }
+.buddy-cheer .mouth-smile { opacity: 0; }
+.buddy-cheer .mouth-o { opacity: 1; }
+.buddy-think .dots { opacity: 1; }
 
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes blink {
+  0%, 46%, 52%, 100% { transform: scaleY(1); }
+  49% { transform: scaleY(0.12); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(16deg); }
+  50% { transform: rotate(-32deg); }
+}
+
+@keyframes point {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+@keyframes hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  40% { transform: translateY(-8px) scale(0.98, 1.04); }
+  70% { transform: translateY(0) scale(1.04, 0.96); }
+}
+
+@keyframes raise {
+  0%, 100% { transform: rotate(8deg); }
+  40% { transform: rotate(-18deg); }
+}
+
+@keyframes tilt {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-7deg); }
+}
+
+@keyframes chin {
+  0%, 100% { transform: rotate(8deg); }
+  50% { transform: rotate(22deg); }
+}
+
+@keyframes pop {
+  0%, 100% { opacity: 0.35; transform: translateY(2px); }
+  50% { opacity: 1; transform: translateY(-2px); }
 }
 
 .kicker {

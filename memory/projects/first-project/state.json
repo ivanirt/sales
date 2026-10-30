@@ -1,10 +1,10 @@
 {
   "companyName": "Northline",
   "industry": "Agency / services",
-  "employees": "",
-  "revenue": "",
-  "status": "",
-  "selected": "cold",
+  "employees": "2-10",
+  "revenue": "$250k-$1M",
+  "status": "Growing",
+  "selected": "retain",
   "offer": {
     "outcome": "",
     "price": "",

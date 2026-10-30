@@ -620,7 +620,7 @@ function view(advice) {
       ${select("revenue", "Revenue", ["Pre-revenue", "Under $250k", "$250k-$1M", "$1M-$5M", "$5M-$10M", "$10M+"])}
       ${select("status", "Status", ["Just starting", "Growing", "Stuck", "Scaling"])}
     </form>
-    <section class="coach">
+    <section class="coach coach-${mood(advice)}">
       ${character(mood(advice))}
       <div>
         <p class="kicker">${thinking ? "Coach is thinking" : "Coach"} · you ${esc(userMemory.usage || "")} · this project ${esc(projectMemory.usage || "")}</p>
@@ -796,18 +796,47 @@ function dealCard(deal) {
 }
 
 function character(kind) {
-  const arm = kind === "stop"
-    ? `<path d="M18 40 H8" stroke="#c2410c" stroke-width="4" stroke-linecap="round"/>`
-    : `<path d="M46 38 h12" stroke="#c2410c" stroke-width="4" stroke-linecap="round"/><path d="M54 34 l6 4 -6 4" fill="#c2410c"/>`;
-  return `<svg class="coach-figure" viewBox="0 0 72 72" aria-hidden="true">
-    <circle cx="36" cy="16" r="10" fill="#1c1915"/>
-    <circle cx="32.5" cy="15.5" r="1.3" fill="#f3ecdf"/>
-    <circle cx="39.5" cy="15.5" r="1.3" fill="#f3ecdf"/>
-    <path d="M32 20.5 Q36 23 40 20.5" fill="none" stroke="#f3ecdf" stroke-width="1.2" stroke-linecap="round"/>
-    <rect x="26" y="28" width="20" height="22" rx="8" fill="#1c1915"/>
-    ${arm}
-    <path d="M30 50 v8 M42 50 v8" stroke="#1c1915" stroke-width="4" stroke-linecap="round"/>
-  </svg>`;
+  return `<div class="buddy buddy-${kind}" aria-hidden="true">
+    <svg class="coach-figure" viewBox="0 0 120 128">
+      <ellipse class="ground" cx="60" cy="120" rx="24" ry="5"/>
+      <g class="dots" fill="#c2410c">
+        <circle class="dot d1" cx="86" cy="24" r="3"/>
+        <circle class="dot d2" cx="97" cy="16" r="3.5"/>
+        <circle class="dot d3" cx="110" cy="10" r="4"/>
+      </g>
+      <g class="coach-body">
+        <g class="arm-wave">
+          <path d="M40 82 Q24 74 20 54" stroke="#e7b08a" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <circle cx="18" cy="50" r="6" fill="#ffd3b0"/>
+        </g>
+        <path d="M38 76c0-8 8-14 22-14s22 6 22 14v20c0 10-8 16-18 16H52c-8 0-14-6-14-14V76z" fill="#1f3d34"/>
+        <rect x="52" y="84" width="16" height="9" rx="3" fill="#c2410c"/>
+        <g class="head">
+          <circle cx="60" cy="50" r="24" fill="#ffd3b0"/>
+          <path d="M38 48c2-18 14-26 22-26s20 8 22 26c-4-8-12-12-22-12s-18 4-22 12z" fill="#1f3d34"/>
+          <ellipse cx="44" cy="56" rx="4.5" ry="2.4" fill="#f0a898" opacity="0.85"/>
+          <ellipse cx="76" cy="56" rx="4.5" ry="2.4" fill="#f0a898" opacity="0.85"/>
+          <g class="eyes" fill="#1c1915">
+            <ellipse class="eye" cx="51" cy="50" rx="3.1" ry="3.6"/>
+            <ellipse class="eye" cx="69" cy="50" rx="3.1" ry="3.6"/>
+          </g>
+          <g fill="#fff">
+            <circle cx="52.2" cy="48.6" r="1.1"/>
+            <circle cx="70.2" cy="48.6" r="1.1"/>
+          </g>
+          <path class="brow brow-left" d="M45 42 Q51 40 56 43" fill="none" stroke="#1f3d34" stroke-width="1.6" stroke-linecap="round"/>
+          <path class="brow brow-right" d="M64 43 Q70 40 75 42" fill="none" stroke="#1f3d34" stroke-width="1.6" stroke-linecap="round"/>
+          <path class="mouth mouth-smile" d="M50 60 Q60 70 70 60" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round"/>
+          <path class="mouth mouth-soft" d="M52 62 Q60 67 68 62" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round"/>
+          <circle class="mouth mouth-o" cx="60" cy="63" r="3.2" fill="none" stroke="#c2410c" stroke-width="2.2"/>
+        </g>
+        <g class="arm-point">
+          <path d="M84 82 Q102 76 112 62" stroke="#e7b08a" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <circle cx="114" cy="58" r="6" fill="#ffd3b0"/>
+        </g>
+      </g>
+    </svg>
+  </div>`;
 }
 
 function mark() {
@@ -819,8 +848,10 @@ function mark() {
 }
 
 function mood(advice) {
-  if (!ready() || !state.offer.sentence.trim() || advice.stage === "revenue" && state.status === "Stuck") return "stop";
-  if (advice.stage === "sale" || advice.stage === "revenue") return "go";
+  if (thinking) return "think";
+  if (!ready()) return "hello";
+  if (!state.offer.sentence.trim() || (advice.stage === "revenue" && state.status === "Stuck")) return "nudge";
+  if (advice.stage === "sale" || advice.stage === "revenue") return "cheer";
   return "point";
 }
 
