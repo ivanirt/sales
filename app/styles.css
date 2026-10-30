@@ -453,6 +453,19 @@ textarea { min-height: 88px; resize: vertical; }
 
 .project-bar { width: 100%; }
 .project-bar input { flex: 1 1 220px; min-width: 0; }
+
+.project-notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.project-notes textarea {
+  min-height: 120px;
+  line-height: 1.45;
+  font-weight: 500;
+}
 .teach input { min-width: 180px; }
 
 .teach { margin: -6px 0 16px; }
@@ -481,7 +494,7 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 @media (max-width: 800px) {
-  .fields, .grid-4, .grid-2 { grid-template-columns: 1fr 1fr; }
+  .fields, .grid-4, .grid-2, .project-notes { grid-template-columns: 1fr; }
   .coach { grid-template-columns: auto 1fr; }
   .cta { grid-column: 1 / -1; }
   .coach-line { font-size: 18px; }

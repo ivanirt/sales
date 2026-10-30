@@ -61,6 +61,9 @@ def write_json(path: Path, payload) -> None:
 def blank_state():
     return {
         "companyName": "",
+        "goal": "",
+        "description": "",
+        "context": "",
         "industry": "",
         "employees": "",
         "revenue": "",
@@ -354,6 +357,9 @@ The snapshot below is frozen for this think. Writes land on disk for the next th
 """
     user = {
         "company": state.get("companyName", ""),
+        "goal": str(state.get("goal") or "")[:4000],
+        "description": str(state.get("description") or "")[:4000],
+        "context": str(state.get("context") or "")[:4000],
         "industry": state.get("industry", ""),
         "employees": state.get("employees", ""),
         "revenue": state.get("revenue", ""),

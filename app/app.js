@@ -114,6 +114,9 @@ boot();
 function blank() {
   return {
     companyName: "",
+    goal: "",
+    description: "",
+    context: "",
     industry: "",
     employees: "",
     revenue: "",
@@ -608,6 +611,11 @@ function view(advice) {
         <button type="button" class="ghost" data-new-project>New</button>
         <button type="button" class="ghost" data-delete-project>Delete</button>
       </div>
+      <div class="project-notes">
+        ${noteField("goal", "Business goal", "What this business is trying to achieve")}
+        ${noteField("description", "Description", "What the business does, who it sells to, and how it makes money")}
+        ${noteField("context", "Context", "Constraints, history, and anything the coach should use")}
+      </div>
     </header>
     ${showSettings ? settingsPanel() : ""}
     ${showMemory ? memoryPanel() : ""}
@@ -640,6 +648,12 @@ function view(advice) {
     </div>
     ${toast ? `<div class="toast" role="status">${esc(toast)}</div>` : ""}
   `;
+}
+
+function noteField(id, label, placeholder) {
+  return `<label>${label}
+    <textarea id="${id}" name="${id}" rows="4" maxlength="4000" placeholder="${esc(placeholder)}">${esc(state[id])}</textarea>
+  </label>`;
 }
 
 function currentProjectName() {
@@ -895,6 +909,11 @@ function onInput(event) {
     return;
   }
   const id = event.target.id;
+  if (["goal", "description", "context"].includes(id)) {
+    state[id] = event.target.value.slice(0, 4000);
+    save();
+    return;
+  }
   if (["outcome", "price", "guarantee", "sentence"].includes(id)) {
     state.offer[id] = event.target.value;
     save();
