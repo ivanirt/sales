@@ -1,0 +1,13 @@
+{
+  "active": "first-project",
+  "projects": [
+    {
+      "id": "first-project",
+      "name": "First project"
+    },
+    {
+      "id": "new-project",
+      "name": "New project"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "companyName": "",
+  "industry": "",
+  "employees": "",
+  "revenue": "",
+  "status": "",
+  "selected": "cold",
+  "offer": {
+    "outcome": "",
+    "price": "",
+    "guarantee": "",
+    "sentence": ""
+  },
+  "math": {
+    "cash30": "",
+    "cost30": "",
+    "spend": "",
+    "customers": ""
+  },
+  "deals": []
+}
