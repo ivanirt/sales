@@ -35,7 +35,7 @@
   "work": {},
   "deals": [
     {
-      "id": "e69923a0-6b74-4ad9-90f5-dd0f706aca6e",
+      "id": "0439ffd1-651c-4815-9233-1325fc05548b",
       "name": "Ava Shah",
       "company": "Bright Dental",
       "why": "Lives on referrals",
@@ -43,7 +43,7 @@
       "cash": ""
     },
     {
-      "id": "c5d8f2db-013b-47c9-acfe-3b3323753c20",
+      "id": "3eb23fb7-bea5-46e7-998c-eb1456bddd3d",
       "name": "Luis Ortega",
       "company": "Peak HVAC",
       "why": "Uneven weeks",
@@ -51,7 +51,7 @@
       "cash": ""
     },
     {
-      "id": "d8e48f2c-d7c2-4c01-8d39-3171e5ffc976",
+      "id": "a17d423f-76c3-4621-870f-49c41c34df2e",
       "name": "Mina Cho",
       "company": "Fieldkit",
       "why": "Founder still sells every deal",
@@ -59,7 +59,7 @@
       "cash": ""
     },
     {
-      "id": "e470901a-07a0-41c9-9126-35ebc2583c3a",
+      "id": "87e1e2ee-bb94-4971-8453-23a5d1c79a3f",
       "name": "Jon Hale",
       "company": "Hale Law",
       "why": "Wants fewer, better clients",
@@ -67,7 +67,7 @@
       "cash": ""
     },
     {
-      "id": "6b1c5fd9-f518-4a16-8547-c537d6904334",
+      "id": "960e79d6-e3bd-4d6a-98ce-796a09035507",
       "name": "Rae Kim",
       "company": "Sable",
       "why": "Thursday at 10",
@@ -75,7 +75,7 @@
       "cash": ""
     },
     {
-      "id": "28660685-ddb5-4cd8-ba81-fa82836cb3c9",
+      "id": "8917e9d7-1f9c-47e7-a582-4372e5ff9655",
       "name": "Chris Adeyemi",
       "company": "Adeyemi Co",
       "why": "Heard the price",
