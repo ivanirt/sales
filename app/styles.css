@@ -81,19 +81,20 @@ h1 {
 .quiet {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  justify-content: flex-end;
+  gap: 8px;
+  justify-content: flex-start;
 }
 
-.business-tools { justify-content: flex-start; margin: 4px 0 12px; }
+.business-options { margin: 0 0 14px; }
 
-.quiet button, .text-btn {
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  padding: 6px 2px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.business-options button {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  padding: 8px 12px;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .fields {

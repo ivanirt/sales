@@ -805,7 +805,8 @@ function detail(stage, advice) {
 function businessPanel() {
   return `<section class="drawer" id="drawer">
     <h2>Business</h2>
-    <div class="quiet business-tools">
+    <p class="empty">Step zero. The rest of the funnel reads this.</p>
+    <div class="quiet business-options">
       <button type="button" data-settings>${meta.hasKey ? "AI key saved" : "Set AI key"}</button>
       <button type="button" data-memory>Memory</button>
       <button type="button" data-example>Load example</button>
@@ -813,7 +814,6 @@ function businessPanel() {
     </div>
     ${showSettings ? settingsPanel() : ""}
     ${showMemory ? memoryPanel() : ""}
-    <p class="empty">Step zero. The rest of the funnel reads this.</p>
     <ul class="do">${bullets("business").map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
     <form class="fields" id="profile">
       <label>Company
