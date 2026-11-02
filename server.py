@@ -68,8 +68,10 @@ def blank_state():
         "employees": "",
         "revenue": "",
         "status": "",
-        "selected": "cold",
+        "selected": "business",
+        "market": {"buyer": "", "pain": "", "reach": "", "cut": ""},
         "offer": {"outcome": "", "price": "", "guarantee": "", "sentence": ""},
+        "model": {"attraction": "", "upsell": "", "downsell": "", "continuity": ""},
         "math": {"cash30": "", "cost30": "", "spend": "", "customers": ""},
         "deals": [],
     }
@@ -340,7 +342,7 @@ def prompt_for(state: dict, note: str) -> list[dict]:
 Order: market, offer, money model, 30-day payback, then the script. A script cannot save a weak offer. Fix the first broken layer.
 
 Reply with JSON only:
-{{"line":"one or two sentences","stage":"cold|email|call|prospect|next|offer|close|sale|retain|revenue","cta":"2 to 4 words","memory":[{{"action":"add|replace|remove","target":"user|memory","content":"","old_text":""}}]}}
+{{"line":"one or two sentences","stage":"business|market|offer|model|economics|cold|email|call|prospect|next|close|sale|retain|revenue","cta":"2 to 4 words","memory":[{{"action":"add|replace|remove","target":"user|memory","content":"","old_text":""}}]}}
 
 target user is USER.md: who Ivan is and how he wants to work. Limit {USER_LIMIT} chars.
 target memory is this project's MEMORY.md: the buyer, the offer, the price, where deals die, what already worked. Limit {MEMORY_LIMIT} chars.
@@ -364,7 +366,9 @@ The snapshot below is frozen for this think. Writes land on disk for the next th
         "employees": state.get("employees", ""),
         "revenue": state.get("revenue", ""),
         "status": state.get("status", ""),
+        "market": state.get("market", {}),
         "offer": state.get("offer", {}),
+        "model": state.get("model", {}),
         "math": state.get("math", {}),
         "deals": brief,
     }
@@ -591,10 +595,18 @@ class Handler(BaseHTTPRequestHandler):
         if not file_path.is_file():
             self.send_error(404)
             return
-        kind = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}.get(file_path.suffix, "application/octet-stream")
+        kind = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "text/javascript; charset=utf-8",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }.get(file_path.suffix, "application/octet-stream")
         data = file_path.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", f"{kind}; charset=utf-8")
+        self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()

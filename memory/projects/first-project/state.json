@@ -7,12 +7,24 @@
   "employees": "2-10",
   "revenue": "$250k-$1M",
   "status": "Growing",
-  "selected": "retain",
+  "selected": "business",
+  "market": {
+    "buyer": "",
+    "pain": "",
+    "reach": "",
+    "cut": ""
+  },
   "offer": {
-    "outcome": "",
-    "price": "",
-    "guarantee": "",
-    "sentence": ""
+    "outcome": "20 qualified sales conversations in 60 days",
+    "price": "$8,000 before kickoff",
+    "guarantee": "If you do the outreach and we miss 20 conversations, the next month is free.",
+    "sentence": "20 qualified sales conversations in 60 days. $8,000 before kickoff. If you do the outreach and we miss 20 conversations, the next month is free."
+  },
+  "model": {
+    "attraction": "",
+    "upsell": "",
+    "downsell": "",
+    "continuity": ""
   },
   "math": {
     "cash30": "",
@@ -20,5 +32,55 @@
     "spend": "",
     "customers": ""
   },
-  "deals": []
+  "work": {},
+  "deals": [
+    {
+      "id": "e69923a0-6b74-4ad9-90f5-dd0f706aca6e",
+      "name": "Ava Shah",
+      "company": "Bright Dental",
+      "why": "Lives on referrals",
+      "stage": "cold",
+      "cash": ""
+    },
+    {
+      "id": "c5d8f2db-013b-47c9-acfe-3b3323753c20",
+      "name": "Luis Ortega",
+      "company": "Peak HVAC",
+      "why": "Uneven weeks",
+      "stage": "email",
+      "cash": ""
+    },
+    {
+      "id": "d8e48f2c-d7c2-4c01-8d39-3171e5ffc976",
+      "name": "Mina Cho",
+      "company": "Fieldkit",
+      "why": "Founder still sells every deal",
+      "stage": "call",
+      "cash": ""
+    },
+    {
+      "id": "e470901a-07a0-41c9-9126-35ebc2583c3a",
+      "name": "Jon Hale",
+      "company": "Hale Law",
+      "why": "Wants fewer, better clients",
+      "stage": "prospect",
+      "cash": ""
+    },
+    {
+      "id": "6b1c5fd9-f518-4a16-8547-c537d6904334",
+      "name": "Rae Kim",
+      "company": "Sable",
+      "why": "Thursday at 10",
+      "stage": "next",
+      "cash": ""
+    },
+    {
+      "id": "28660685-ddb5-4cd8-ba81-fa82836cb3c9",
+      "name": "Chris Adeyemi",
+      "company": "Adeyemi Co",
+      "why": "Heard the price",
+      "stage": "close",
+      "cash": ""
+    }
+  ]
 }

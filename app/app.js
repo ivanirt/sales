@@ -1,17 +1,23 @@
 const KEY = "funnel-coach-v1";
 
 const STAGES = [
-  { id: "cold", label: "Cold contacts", hint: "Names who can pay" },
-  { id: "email", label: "Email", hint: "Send the note" },
+  { id: "business", label: "Business", hint: "Company setup" },
+  { id: "market", label: "Market", hint: "Who already pays" },
+  { id: "offer", label: "Offer", hint: "What they buy" },
+  { id: "model", label: "Money model", hint: "Get, more, save, keep" },
+  { id: "economics", label: "Economics", hint: "30-day payback" },
+  { id: "cold", label: "Leads", hint: "Names who can pay" },
+  { id: "email", label: "Outreach", hint: "Send the note" },
   { id: "call", label: "Calls", hint: "Have the conversation" },
-  { id: "prospect", label: "Prospects", hint: "Pain, money, decision" },
-  { id: "next", label: "Next steps", hint: "A time on the calendar" },
-  { id: "offer", label: "Offers", hint: "What they buy" },
+  { id: "prospect", label: "Qualify", hint: "Pain, money, decision" },
+  { id: "next", label: "Booked", hint: "A time on the calendar" },
   { id: "close", label: "Close", hint: "Ask for the decision" },
   { id: "sale", label: "Sale", hint: "Cash and a start" },
-  { id: "retain", label: "Retain", hint: "They keep paying" },
-  { id: "revenue", label: "Revenue", hint: "Make each buyer worth more" },
+  { id: "retain", label: "Continuity", hint: "They keep paying" },
+  { id: "revenue", label: "Expand", hint: "Make each buyer worth more" },
 ];
+
+const PIPELINE = ["cold", "email", "call", "prospect", "next", "offer", "close", "sale", "retain", "revenue"];
 
 const TONES = ["#1e3b33", "#234438", "#284c3e", "#2e5646", "#365f4c", "#3f6a56", "#4e7358", "#6a6244", "#7a4e32", "#8a3b22"];
 
@@ -98,6 +104,9 @@ let userMemory = { entries: [], pct: "0% — 0/1,375 chars", usage: "0/1,375" };
 let projectMemory = { entries: [], pct: "0% — 0/2,200 chars", usage: "0/2,200" };
 let ai = { line: "", stage: "", cta: "" };
 let thinking = false;
+let askOpen = false;
+let pendingAsk = false;
+let thread = [];
 let showSettings = false;
 let showMemory = false;
 let settingsDraft = { baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", apiKey: "" };
@@ -121,10 +130,30 @@ function blank() {
     employees: "",
     revenue: "",
     status: "",
-    selected: "cold",
+    selected: "business",
+    market: { buyer: "", pain: "", reach: "", cut: "" },
     offer: { outcome: "", price: "", guarantee: "", sentence: "" },
+    model: { attraction: "", upsell: "", downsell: "", continuity: "" },
     math: { cash30: "", cost30: "", spend: "", customers: "" },
+    work: {},
     deals: [],
+  };
+}
+
+function hydrate(saved) {
+  const base = blank();
+  const data = saved || {};
+  const selected = STAGES.some((stage) => stage.id === data.selected) ? data.selected : base.selected;
+  return {
+    ...base,
+    ...data,
+    selected,
+    market: { ...base.market, ...(data.market || {}) },
+    offer: { ...base.offer, ...(data.offer || {}) },
+    model: { ...base.model, ...(data.model || {}) },
+    math: { ...base.math, ...(data.math || {}) },
+    work: data.work && typeof data.work === "object" ? data.work : {},
+    deals: data.deals || [],
   };
 }
 
@@ -132,7 +161,7 @@ function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "null");
     if (!saved) return blank();
-    return { ...blank(), ...saved, offer: { ...blank().offer, ...(saved.offer || {}) }, math: { ...blank().math, ...(saved.math || {}) }, deals: saved.deals || [] };
+    return hydrate(saved);
   } catch {
     return blank();
   }
@@ -179,15 +208,47 @@ async function runThink(gen, note) {
   if (gen !== thinkGen) return;
   thinking = false;
   if (!response.ok) {
-    flash(data.error || "The coach could not think.");
+    const message = data.error || "The coach could not think.";
+    if (pendingAsk) {
+      thread.push({ role: "coach", text: message });
+      pendingAsk = false;
+    }
+    flash(message);
     render();
     return;
   }
   applyThink(data);
 }
 
+function askCoach(question, fallback, shown) {
+  thread.push({ role: "you", text: shown || question });
+  if (thread.length > 16) thread = thread.slice(-16);
+  askOpen = true;
+  if (!meta.hasKey) {
+    const advice = coach();
+    const line = fallback || advice.line;
+    thread.push({ role: "coach", text: `${line} Set an AI key if you want the draft for that exact activity.` });
+    render();
+    return;
+  }
+  pendingAsk = true;
+  const gen = ++thinkGen;
+  runThink(gen, "Answer this question in the line field and point stage at the step to open. Question: " + question).catch(() => {
+    if (pendingAsk) {
+      thread.push({ role: "coach", text: "The coach could not think." });
+      pendingAsk = false;
+    }
+    flash("The coach could not think.");
+    render();
+  });
+}
+
 function applyThink(data) {
-  if (data.line) ai = { line: data.line, stage: data.stage || "cold", cta: data.cta || "Do this" };
+  if (data.line) ai = { line: data.line, stage: data.stage || "business", cta: data.cta || "Do this" };
+  if (pendingAsk && data.line) {
+    thread.push({ role: "coach", text: data.line });
+    pendingAsk = false;
+  }
   if (data.user) userMemory = data.user;
   if (data.memory) projectMemory = data.memory;
   if (data.learned && data.learned.length) flash("Saved to memory. The next think uses it.");
@@ -206,7 +267,7 @@ function applyBootstrap(data) {
   settingsDraft.model = meta.model;
   userMemory = data.user || userMemory;
   projectMemory = data.memory || projectMemory;
-  state = { ...blank(), ...(data.state || {}), offer: { ...blank().offer, ...((data.state || {}).offer || {}) }, math: { ...blank().math, ...((data.state || {}).math || {}) }, deals: (data.state || {}).deals || [] };
+  state = hydrate(data.state);
   ai = { line: "", stage: "", cta: "" };
 }
 
@@ -235,7 +296,7 @@ async function adoptLegacy() {
   }
   try {
     const saved = JSON.parse(legacy);
-    state = { ...blank(), ...saved, offer: { ...blank().offer, ...(saved.offer || {}) }, math: { ...blank().math, ...(saved.math || {}) }, deals: saved.deals || [] };
+    state = hydrate(saved);
     await persistNow();
     localStorage.removeItem(KEY);
   } catch { /* keep the server board */ }
@@ -268,13 +329,13 @@ function counts() {
 }
 
 function nextId(id) {
-  const index = STAGES.findIndex((stage) => stage.id === id);
-  return STAGES[index + 1] ? STAGES[index + 1].id : null;
+  const index = PIPELINE.indexOf(id);
+  return index >= 0 && PIPELINE[index + 1] ? PIPELINE[index + 1] : null;
 }
 
 function prevId(id) {
-  const index = STAGES.findIndex((stage) => stage.id === id);
-  return index > 0 ? STAGES[index - 1].id : null;
+  const index = PIPELINE.indexOf(id);
+  return index > 0 ? PIPELINE[index - 1] : null;
 }
 
 function moneyCue() {
@@ -307,6 +368,26 @@ function draftOffer() {
     price,
     guarantee: item.guarantee,
     sentence: `${cap(item.outcome)}. ${price}. ${item.guarantee}`,
+  };
+}
+
+function draftMarket() {
+  const item = play();
+  return {
+    buyer: item.avatar,
+    pain: item.outcome,
+    reach: item.list,
+    cut: "Cut buyers who want it cheap and will not stay. Keep the ones who pay the most and stay the longest.",
+  };
+}
+
+function draftModel() {
+  const item = play();
+  return {
+    attraction: state.offer.sentence.trim() || `${cap(item.outcome)}. ${priceFor()}. ${item.guarantee}`,
+    upsell: item.upsell,
+    downsell: "Same offer on a short payment plan, or a lower price with the guarantee or the done-for-you part removed.",
+    continuity: item.continuity,
   };
 }
 
@@ -353,7 +434,7 @@ function sizeLine() {
 function coach() {
   if (!ready()) {
     return {
-      stage: "cold",
+      stage: "business",
       focus: gap(),
       cta: "Set the company",
       line: "Tell me the industry, headcount, revenue, and whether you are starting, growing, stuck, or scaling. I will not guess a next step for a company I cannot see.",
@@ -361,6 +442,13 @@ function coach() {
   }
   const item = play();
   const cue = moneyCue();
+  if (!state.market.buyer.trim()) {
+    return {
+      stage: "market",
+      cta: "Name the buyer",
+      line: `Start with who already pays. The buyer looks like ${item.avatar}. Write who you keep and who you cut.`,
+    };
+  }
   if (!state.offer.sentence.trim()) {
     return {
       stage: "offer",
@@ -380,11 +468,14 @@ function coach() {
     if (math.ready && math.level === 3) {
       return { stage: "retain", cta: "Fix retention", line: "The 30-day math works and you are still stuck. They are leaving, or the cheap buyers are clogging the list. Sell continuity at the first win." };
     }
-    return { stage: "revenue", cta: "Do the math", line: `You already sell and you are stuck. Each buyer is worth too little, or the cash comes back too slow. Fill the 30-day numbers before you buy another lead. ${cue}`.trim() };
+    return { stage: "economics", cta: "Do the math", line: `You already sell and you are stuck. Each buyer is worth too little, or the cash comes back too slow. Fill the 30-day numbers before you buy another lead. ${cue}`.trim() };
   }
 
+  if (!state.model.attraction.trim()) {
+    return { stage: "model", cta: "Set the model", line: "The offer is one sentence. Now write the attraction, the upsell, the downsell, and why they pay again." };
+  }
   if (state.status === "Scaling" && small && (!math.ready || math.level < 3)) {
-    return { stage: "revenue", cta: "Check payback", line: "Scaling with almost no team breaks delivery. Get 30-day gross profit to at least double what you pay to get a customer before you add more names." };
+    return { stage: "economics", cta: "Check payback", line: "Scaling with almost no team breaks delivery. Get 30-day gross profit to at least double what you pay to get a customer before you add more names." };
   }
 
   const pipeline = ["cold", "email", "call", "prospect", "next", "offer", "close"];
@@ -428,9 +519,31 @@ function pushLine(id, count) {
 }
 
 function bullets(id) {
-  if (!ready()) return ["Set industry, headcount, revenue, and status. The words below change with them."];
+  if (id === "business") {
+    return [
+      "Name the company, the goal, and what it actually sells.",
+      "Industry, headcount, revenue, and status change every later step.",
+      "Context is where deals die: no-show, price, a partner, or churn.",
+    ];
+  }
+  if (!ready()) return ["Open Business and set industry, headcount, revenue, and status."];
   const item = play();
   const map = {
+    market: [
+      `Buyer: ${state.market.buyer || item.avatar}.`,
+      "Rank who pays the most and stays the longest. That is the list.",
+      state.market.cut || "Cut the channel that brings cheap buyers who leave fast.",
+    ],
+    model: [
+      "Attraction turns a stranger into a customer. One play, not five.",
+      "Upsell at the yes. Downsell only after a real no, by a payment plan or a removed feature.",
+      `Continuity: ${state.model.continuity || item.continuity}. Sell it at the first win.`,
+    ],
+    economics: [
+      "Use cash collected, not contracts.",
+      "Include ads, commissions, and sales pay in the cost to get a customer.",
+      mathOf().level === 3 ? "Math works. Cap sales at what you can deliver." : "If 30-day gross profit is under the cost to get a customer, fix the offer before you scale.",
+    ],
     cold: [
       item.list,
       state.employees === "Just me" ? "You add the names. Do not delegate a list you have not proven." : "One owner adds the names and is accountable for the count.",
@@ -477,9 +590,9 @@ function bullets(id) {
       "Book the next check-in before the call ends.",
     ],
     revenue: [
-      "Use cash collected, not contracts.",
-      "Include ads, commissions, and sales pay in the cost to get a customer.",
-      mathOf().level === 3 ? "Math works. Cap sales at what you can deliver." : "If 30-day gross profit is under the cost to get a customer, fix the offer before you scale.",
+      `After the first win, sell ${item.upsell}, then ${item.continuity}.`,
+      "A new offer is allowed only if it uses demand you already have.",
+      "If it needs a new team and a new promise, it is a second business. Do not start it.",
     ],
   };
   return map[id];
@@ -557,6 +670,9 @@ Next step: a decision on the booked call.`;
 }
 
 function asset(id) {
+  if (id === "market") return { title: "Who you sell to", text: marketText() };
+  if (id === "model") return { title: "Money model", text: modelText() };
+  if (id === "economics") return { title: "Payback rule", text: "Do not buy more leads until 30-day gross profit covers the cost to get one customer. About 2× means this customer pays for the next one." };
   if (id === "email") return { title: "Email to send", text: emailText() };
   if (id === "call") return { title: "Call script", text: callText() };
   if (id === "close") return { title: "Close", text: closeText() };
@@ -564,8 +680,27 @@ function asset(id) {
   if (id === "next") return { title: "Leave-behind", text: onePager() };
   if (id === "prospect") return { title: "Qualify out loud", text: `1. What is the painful problem?\n2. What have they already spent on it?\n3. Who else has to say yes?\n\nFit: ${play().avatar}.` };
   if (id === "sale") return { title: "After the yes", text: `Due today: ${state.offer.price || "the amount you named"}.\nStart inside 48 hours.\nUpsell now: ${play().upsell}.` };
-  if (id === "cold") return { title: "Who goes on the list", text: ready() ? `${play().list}\n\nBuyer: ${play().avatar}.\n${sizeLine()}` : "Set the company first." };
+  if (id === "cold") return { title: "Who goes on the list", text: ready() ? `${play().list}\n\nBuyer: ${state.market.buyer || play().avatar}.\n${sizeLine()}` : "Set the company first." };
+  if (id === "revenue") return { title: "After they pay", text: ready() ? `Upsell: ${play().upsell}.\nContinuity: ${play().continuity}.\nSell the next offer while they are hottest: at the yes, or at the first win.` : "Set the company first." };
   return null;
+}
+
+function marketText() {
+  if (!ready()) return "Set the company first. Then name the buyer.";
+  const item = play();
+  return `Keep: ${state.market.buyer || item.avatar}
+Pain they already pay to fix: ${state.market.pain || item.outcome}
+Where you reach them: ${state.market.reach || item.list}
+Cut: ${state.market.cut || "Anyone who wants it cheap and will not stay."}`;
+}
+
+function modelText() {
+  if (!ready()) return "Set the company first. Then write the four offers.";
+  const item = play();
+  return `Attraction: ${state.model.attraction || state.offer.sentence || item.outcome}
+Upsell: ${state.model.upsell || item.upsell}
+Downsell: ${state.model.downsell || "Payment plan, or a cheaper version with a feature removed."}
+Continuity: ${state.model.continuity || item.continuity}`;
 }
 
 function activeAdvice() {
@@ -576,32 +711,31 @@ function activeAdvice() {
 function render() {
   const advice = activeAdvice();
   const focus = captureFocus();
+  const stagePane = document.querySelector(".stage");
+  const railPane = document.querySelector(".rail");
+  const stageTop = stagePane ? stagePane.scrollTop : 0;
+  const railTop = railPane ? railPane.scrollTop : 0;
   document.getElementById("app").innerHTML = view(advice);
   restoreFocus(focus);
-  if (jump) {
-    jump = false;
-    document.getElementById("drawer")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  const nextStage = document.querySelector(".stage");
+  const nextRail = document.querySelector(".rail");
+  if (nextStage) nextStage.scrollTop = stageTop;
+  if (nextRail) nextRail.scrollTop = railTop;
 }
 
 function view(advice) {
   const tally = counts();
+  const stage = STAGES.find((item) => item.id === state.selected) || STAGES[0];
   return `
     <header class="top">
       <div class="top-row">
-      <div class="brand">
-        ${mark()}
-        <div>
-          <h1>Funnel</h1>
-          <p class="sub">One next move for ${esc(state.companyName || "this company")}.</p>
+        <div class="brand">
+          ${mark()}
+          <div>
+            <h1>Funnel</h1>
+            <p class="sub">One next move for ${esc(state.companyName || "this company")}.</p>
+          </div>
         </div>
-      </div>
-      <div class="quiet">
-        <button type="button" data-settings>${meta.hasKey ? "AI key saved" : "Set AI key"}</button>
-        <button type="button" data-memory>Memory</button>
-        <button type="button" data-example>Load example</button>
-        <button type="button" data-clear>Clear board</button>
-      </div>
       </div>
       <div class="project-bar">
         <label>Project
@@ -611,14 +745,76 @@ function view(advice) {
         <button type="button" class="ghost" data-new-project>New</button>
         <button type="button" class="ghost" data-delete-project>Delete</button>
       </div>
-      <div class="project-notes">
-        ${noteField("goal", "Business goal", "What this business is trying to achieve")}
-        ${noteField("description", "Description", "What the business does, who it sells to, and how it makes money")}
-        ${noteField("context", "Context", "Constraints, history, and anything the coach should use")}
-      </div>
     </header>
+    <div class="workspace">
+      <nav class="rail" aria-label="Funnel">
+        ${STAGES.map((item, index) => stepButton(item, index, tally, advice)).join("")}
+      </nav>
+      <main class="stage">
+        ${detail(stage, advice)}
+      </main>
+    </div>
+    ${floater(advice)}
+    ${toast ? `<div class="toast" role="status">${esc(toast)}</div>` : ""}
+  `;
+}
+
+function stepButton(stage, index, tally, advice) {
+  const on = state.selected === stage.id;
+  const recommended = advice.stage === stage.id;
+  const count = PIPELINE.includes(stage.id) ? tally[stage.id] : "";
+  return `<button type="button" class="step ${on ? "on" : ""}" data-select="${stage.id}" ${on ? `aria-current="true"` : ""}>
+    <span class="idx">${index}</span>
+    <span><span class="slice-label">${stage.label}</span><span class="slice-hint">${stage.hint}</span></span>
+    <span class="count">${count}${recommended ? `<span class="next-tag">Next</span>` : ""}</span>
+  </button>`;
+}
+
+function detail(stage, advice) {
+  if (stage.id === "business") return businessPanel();
+  const deals = state.deals.filter((deal) => deal.stage === stage.id);
+  const block = asset(stage.id);
+  const here = advice.stage === stage.id;
+  const people = PIPELINE.includes(stage.id);
+  return `<section class="drawer" id="drawer">
+    ${here ? `<span class="here">This is the next move</span>` : ""}
+    <h2>${esc(stage.label)}</h2>
+    <ul class="do">${(bullets(stage.id) || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+    ${stage.id === "market" ? marketForm() : ""}
+    ${stage.id === "offer" ? offerForm() : ""}
+    ${stage.id === "model" ? modelForm() : ""}
+    ${stage.id === "economics" ? revenueForm() : ""}
+    ${block ? `<div class="asset">
+      <div class="asset-head"><h3>${esc(block.title)}</h3><button type="button" class="copy" data-copy="${esc(block.text)}">Copy</button></div>
+      <pre>${esc(block.text)}</pre>
+    </div>` : ""}
+    ${stage.id === "economics" ? activityPlan() : ""}
+    ${people ? `<div class="people">
+      <div class="people-head"><h3>In this step</h3></div>
+      <form class="add-form" data-add="${stage.id}">
+        <input name="name" placeholder="Name" required autocomplete="off" />
+        <input name="company" placeholder="Company" autocomplete="off" />
+        <input name="why" placeholder="Why they can buy" autocomplete="off" />
+        <button class="small-primary" type="submit">Add</button>
+      </form>
+      ${deals.length ? deals.map(dealCard).join("") : `<p class="empty">Nobody here yet.</p>`}
+    </div>` : ""}
+  </section>`;
+}
+
+function businessPanel() {
+  return `<section class="drawer" id="drawer">
+    <h2>Business</h2>
+    <div class="quiet business-tools">
+      <button type="button" data-settings>${meta.hasKey ? "AI key saved" : "Set AI key"}</button>
+      <button type="button" data-memory>Memory</button>
+      <button type="button" data-example>Load example</button>
+      <button type="button" data-clear>Clear board</button>
+    </div>
     ${showSettings ? settingsPanel() : ""}
     ${showMemory ? memoryPanel() : ""}
+    <p class="empty">Step zero. The rest of the funnel reads this.</p>
+    <ul class="do">${bullets("business").map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
     <form class="fields" id="profile">
       <label>Company
         <input id="companyName" name="companyName" value="${esc(state.companyName)}" placeholder="Name" autocomplete="off" />
@@ -628,26 +824,35 @@ function view(advice) {
       ${select("revenue", "Revenue", ["Pre-revenue", "Under $250k", "$250k-$1M", "$1M-$5M", "$5M-$10M", "$10M+"])}
       ${select("status", "Status", ["Just starting", "Growing", "Stuck", "Scaling"])}
     </form>
-    <section class="coach coach-${mood(advice)}">
-      ${character(mood(advice))}
-      <div>
-        <p class="kicker">${thinking ? "Coach is thinking" : "Coach"} · you ${esc(userMemory.usage || "")} · this project ${esc(projectMemory.usage || "")}</p>
-        <p class="coach-line" aria-live="polite">${esc(advice.line)}</p>
+    <div class="project-notes">
+      ${noteField("goal", "Business goal", "What this business is trying to achieve")}
+      ${noteField("description", "Description", "What the business does, who it sells to, and how it makes money")}
+      ${noteField("context", "Context", "Constraints, history, and anything the coach should use")}
+    </div>
+  </section>`;
+}
+
+function floater(advice) {
+  const messages = thread.slice(-8);
+  return `<div class="floater">
+    ${askOpen ? `<section class="ask-panel" aria-label="Ask the coach">
+      <p class="kicker">${thinking ? "Coach is thinking" : "Coach"} · you ${esc(userMemory.usage || "")} · this project ${esc(projectMemory.usage || "")}</p>
+      <div class="ask-log">
+        ${messages.length ? messages.map((item) => `<p class="ask-${item.role}">${esc(item.text)}</p>`).join("") : `<p class="ask-coach">${esc(advice.line)}</p>`}
+        ${pendingAsk ? `<p class="ask-coach">Thinking…</p>` : ""}
       </div>
       <div class="coach-actions">
         <button type="button" class="cta" data-cta="${esc(advice.stage)}" data-focus="${esc(advice.focus || "")}">${esc(thinking ? "Thinking" : advice.cta)}</button>
-        <button type="button" class="ghost" data-think>${meta.hasKey ? "Think" : "Needs a key"}</button>
       </div>
-    </section>
-    <form class="teach" data-teach>
-      <input name="note" placeholder="Tell the coach what to remember about you or this project" autocomplete="off" />
-      <button class="small-primary" type="submit">Remember</button>
-    </form>
-    <div class="funnel">
-      ${STAGES.map((stage, index) => stageBlock(stage, index, tally, advice)).join("")}
-    </div>
-    ${toast ? `<div class="toast" role="status">${esc(toast)}</div>` : ""}
-  `;
+      <form class="ask-form" data-ask>
+        <input name="question" placeholder="Ask the coach" autocomplete="off" />
+        <button class="small-primary" type="submit">Ask</button>
+      </form>
+    </section>` : ""}
+    <button type="button" class="coach-fab" data-ask-toggle aria-expanded="${askOpen}" aria-label="Ask the coach">
+      <img src="coach.jpg" alt="" />
+    </button>
+  </div>`;
 }
 
 function noteField(id, label, placeholder) {
@@ -705,45 +910,30 @@ function select(id, label, options) {
   </label>`;
 }
 
-function stageBlock(stage, index, tally, advice) {
-  const open = state.selected === stage.id;
-  const recommended = advice.stage === stage.id;
-  return `<div class="block">
-    <button type="button" class="slice ${open ? "on" : ""}" style="--i:${index};--tone:${TONES[index]}" data-select="${stage.id}" aria-expanded="${open}">
-      <span class="idx">${index + 1}</span>
-      <span><span class="slice-label">${stage.label}</span><span class="slice-hint">${stage.hint}</span></span>
-      <span class="count">${tally[stage.id]}</span>
-      ${recommended ? `<span class="next-tag">Next</span>` : `<span></span>`}
-    </button>
-    ${open ? drawer(stage, advice) : ""}
-  </div>`;
+function marketForm() {
+  const market = state.market;
+  return `<form class="asset" id="marketForm">
+    <div class="asset-head"><h3>The buyer</h3><button type="button" class="small-primary" data-draft-market>Name the buyer</button></div>
+    <div class="grid-2">
+      <label>Who pays<input id="buyer" value="${esc(market.buyer)}" /></label>
+      <label>Pain they already pay for<input id="pain" value="${esc(market.pain)}" /></label>
+    </div>
+    <label>Where you reach them<input id="reach" value="${esc(market.reach)}" /></label>
+    <label>Who you cut<textarea id="cut">${esc(market.cut)}</textarea></label>
+  </form>`;
 }
 
-function drawer(stage, advice) {
-  const deals = state.deals.filter((deal) => deal.stage === stage.id);
-  const block = asset(stage.id);
-  const here = advice.stage === stage.id;
-  return `<section class="drawer" id="drawer">
-    ${here ? `<span class="here">This is the next move</span>` : ""}
-    <h2>${esc(stage.label)}</h2>
-    <ul class="do">${bullets(stage.id).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
-    ${stage.id === "offer" ? offerForm() : ""}
-    ${stage.id === "revenue" ? revenueForm() : ""}
-    ${block ? `<div class="asset">
-      <div class="asset-head"><h3>${esc(block.title)}</h3><button type="button" class="copy" data-copy="${esc(block.text)}">Copy</button></div>
-      <pre>${esc(block.text)}</pre>
-    </div>` : ""}
-    <div class="people">
-      <div class="people-head"><h3>In this step</h3></div>
-      <form class="add-form" data-add="${stage.id}">
-        <input name="name" placeholder="Name" required autocomplete="off" />
-        <input name="company" placeholder="Company" autocomplete="off" />
-        <input name="why" placeholder="Why they can buy" autocomplete="off" />
-        <button class="small-primary" type="submit">Add</button>
-      </form>
-      ${deals.length ? deals.map(dealCard).join("") : `<p class="empty">Nobody here yet.</p>`}
+function modelForm() {
+  const model = state.model;
+  return `<form class="asset" id="modelForm">
+    <div class="asset-head"><h3>Four offers</h3><button type="button" class="small-primary" data-draft-model>Write the model</button></div>
+    <label>Attraction<textarea id="attraction">${esc(model.attraction)}</textarea></label>
+    <div class="grid-2">
+      <label>Upsell<textarea id="upsell">${esc(model.upsell)}</textarea></label>
+      <label>Downsell<textarea id="downsell">${esc(model.downsell)}</textarea></label>
     </div>
-  </section>`;
+    <label>Continuity<textarea id="continuity">${esc(model.continuity)}</textarea></label>
+  </form>`;
 }
 
 function offerForm() {
@@ -791,6 +981,160 @@ function lever(math) {
   return "This customer funds the next one. Sell only what you can deliver.";
 }
 
+function stageLabel(id) {
+  const stage = STAGES.find((item) => item.id === id);
+  return stage ? stage.label : "Leads";
+}
+
+function fullest() {
+  const tally = counts();
+  let id = "cold";
+  let count = 0;
+  PIPELINE.forEach((stageId) => {
+    if ((tally[stageId] || 0) > count) {
+      count = tally[stageId];
+      id = stageId;
+    }
+  });
+  return { id, count, label: stageLabel(id) };
+}
+
+function moveLine(pile) {
+  const next = {
+    cold: "Send the note today. Do not research them for an hour.",
+    email: "Call anyone who has sat there two days.",
+    call: "Qualify pain, money, and who decides. Book a time or take the no.",
+    prospect: "Put a day and a time on the calendar before you hang up.",
+    next: "Say the price and the guarantee out loud.",
+    offer: "Ask for the decision, then wait.",
+    close: "Split the payment or remove a feature. Do not discount the same offer.",
+    sale: "Collect what is due today and start inside 48 hours.",
+    retain: "Sell continuity at the first win.",
+    revenue: "Sell the next offer while they are hottest.",
+  };
+  if (!pile.count) return `Nobody is in the funnel. Add 10 ${play().avatar} from one list, then send the note.`;
+  const noun = pile.count === 1 ? "person is" : "people are";
+  return `${pile.count} ${noun} in ${pile.label}. ${next[pile.id]} That pile is the most people you can move this week.`;
+}
+
+function levelKey(math) {
+  if (!ready()) return "setup";
+  if (!math.ready) return "need";
+  return `level-${math.level}`;
+}
+
+function levelActivities() {
+  const math = mathOf();
+  const item = ready() ? play() : PLAYS.Other;
+  const pile = fullest();
+  const industry = state.industry || "This business";
+  const buyer = state.market.buyer.trim() || item.avatar;
+  const key = levelKey(math);
+  if (key === "setup") {
+    return {
+      kicker: "Need numbers",
+      intro: "Industry is blank, so the payback rule has nothing to aim at. Set the business, then these four moves. Do not buy leads until the four numbers exist.",
+      items: [
+        act("set-business", "Set the company", "Industry, headcount, revenue, and status. Every later activity uses them.", "Ask the coach what is still missing on Business. It names the one field, not a lecture."),
+        act("pull-numbers", "Pull the four numbers", "Last 30 days: cash collected, cost to deliver, ad plus sales cost, new customers. Bank and invoices. Not a forecast.", "Paste the four totals into the coach. It names the level and the one lever. It will not invent a missing number."),
+        act("name-buyer", "Name who already pays", "One sentence: who pays the most and stays. Cut the cheap buyers who leave.", "Ask the coach to write the buyer sentence from the industry you set. You delete anyone you cannot actually reach."),
+        act("freeze-spend", "Freeze new spend", "The payback rule is shut. More names before the numbers is how this level eats cash.", "Ask the coach to list the channels to pause until level 2. You confirm which ones you actually pay for."),
+      ],
+    };
+  }
+  if (key === "need") {
+    return {
+      kicker: "Need numbers",
+      intro: `${industry}. Buyer: ${buyer}. The payback rule is blank, so another lead is a guess. ${moveLine(pile)} Fill the numbers, then move that pile. Do not buy more names.`,
+      items: [
+        act("pull-numbers", "Pull the four numbers", "Cash collected, cost to deliver, ad plus sales cost, and new customers for the last 30 days. One sitting. Bank and invoices.", "Paste the four totals into the coach. It returns the level, 30-day gross profit versus the cost to get one customer, and the single lever."),
+        act("move-pile", `Move everyone in ${pile.label}`, moveLine(pile), `Ask the coach for the exact words for ${pile.label}, written for ${buyer}. Copy them and use them the same day.`),
+        act("offer-check", "Read the offer out loud", state.offer.sentence.trim() ? `Use this sentence with that pile: ${state.offer.sentence}` : `There is no one-sentence offer yet. Write the result, the price, and a guarantee you can pay for ${buyer} before the next send.`, "Ask the coach to draft the one sentence from this industry and this offer. You strike any guarantee you cannot pay."),
+        act("qualify-pay", "Keep only people who can pay", `On the ${pile.label} list, mark pain, money, and who decides. Two missing means they are not a prospect.`, "Ask the coach for the three questions in this industry. Ask them on the call. Do not let it invent a budget."),
+        act("freeze-spend", "Hold spend until the rule is filled", "Payback: do not buy leads until 30-day gross profit covers what you pay to get one customer. About 2× means this customer pays for the next one.", "After the numbers are in, ask the coach whether this week is fix-the-offer or work-the-pile. One answer."),
+      ],
+    };
+  }
+  if (math.level === 1) {
+    return {
+      kicker: "Level 1",
+      intro: `${industry} is funding growth from savings. 30-day gross profit is under the cost to get a customer. ${moveLine(pile)} Raise cash collected this month from people you already have. The payback rule says no new spend.`,
+      items: [
+        act("move-pile", `Work the ${pile.label} pile only`, moveLine(pile), `Ask the coach for the script that moves ${pile.label} one step, for ${buyer}. It should name the price you already wrote.`),
+        act("upsell-now", "Collect more this month", `At the yes, sell ${item.upsell}. It has to be cash inside 30 days, not a contract that pays in month six.`, "Ask the coach for the one sentence you say the moment they pay. You check that you can deliver it this month."),
+        act("downsell", "Save the no without a discount", "Same offer on a short payment plan, or a lower price with the guarantee or the done-for-you part removed. Say what they lose.", "Ask the coach to write both options in your words. You pick one and say it."),
+        act("raise-price", "Charge the next five more", `The next five conversations with ${buyer} hear a higher price. Do not apologize.`, "Ask the coach for the price line and the pause after it. You say the number you are willing to charge."),
+        act("cut-channel", "Cut the cheap channel", state.market.cut.trim() || "Stop the source that brings buyers who want it cheap and will not stay. Keep the source that brings the ones who pay and stay.", "Ask the coach which of your current sources fails the payback rule. You turn that one off."),
+      ],
+    };
+  }
+  if (math.level === 2) {
+    return {
+      kicker: "Level 2",
+      intro: `${industry} gets the cash back inside 30 days, and not twice over. ${moveLine(pile)} Add continuity and the upsell until 30-day gross profit is about double the cost to get one customer. Hold spend flat.`,
+      items: [
+        act("move-pile", `Close the ${pile.label} pile`, moveLine(pile), `Ask the coach for the close, written for ${buyer}. Price and guarantee stay the ones you can pay.`),
+        act("continuity", "Sell continuity at the first win", `When they hit the first result, sell ${item.continuity}. Month-to-month keeps a real setup fee. A longer commit waives it.`, "Ask the coach for the words you say at the first win, including the fee they owe if they leave early."),
+        act("upsell-now", "Upsell at the yes", `People who buy the core also get ${item.upsell}. Offer it before you leave the conversation.`, "Ask the coach for that sentence, tied to the next problem the first purchase creates."),
+        act("recalc", "Recalculate after the extra cash", "Add the upsell and continuity cash to the 30-day numbers. The target is about 2×. Then this customer pays for the next one.", "Paste the new four totals into the coach. Ask if you cleared level 3 or what single offer is still short."),
+      ],
+    };
+  }
+  return {
+    kicker: "Level 3",
+    intro: `${industry} is at the payback rule: this customer can fund the next one. ${moveLine(pile)} ${sizeLine() || "Cap the starts at what you can deliver."} More prospects only help if you can start them.`,
+    items: [
+      act("cap-delivery", "Cap the starts", `${sizeLine() || "Take only the starts you can deliver in the next 14 days."} A yes you cannot start is a refund, not growth.`, "Ask the coach how many new customers this headcount can start in 14 days. You replace its guess with the real number."),
+      act("move-pile", `Take the best of ${pile.label}`, `${moveLine(pile)} Drop anyone who is not ${buyer}.`, `Ask the coach for a five-line filter for ${buyer}. You apply it to the ${pile.label} list and delete the rest.`),
+      act("start-fast", "Cash and a start in 48 hours", `Due today: ${state.offer.price || priceFor()}. Start inside 48 hours. Then offer ${item.upsell}.`, "Ask the coach for the after-yes checklist: amount due, start date, and the upsell sentence."),
+      act("keep-paying", "Lock continuity before they cool off", `Sell ${item.continuity} at the first win so the extra volume does not walk out.`, "Ask the coach for the continuity close. You keep the fee real."),
+      act("one-list", "Add names from one list", `Only after the cap is set. One source: ${item.list}`, "Ask the coach for the list criteria, not invented people. You fill the real names."),
+    ],
+  };
+
+  function act(id, title, text, ai) {
+    return {
+      id: `${key}-${id}`,
+      title,
+      text,
+      ai,
+      prompt: `Draft what I should say or send to finish this activity today. Activity: ${title}. ${text} Business: ${industry}. Buyer: ${buyer}. Biggest pile: ${pile.count} in ${pile.label}. Payback status: ${key}. Do not invent numbers, proof, scarcity, or a guarantee I did not write.`,
+    };
+  }
+}
+
+function activityPlan() {
+  const plan = levelActivities();
+  return `<section class="plan">
+    <h3>${esc(plan.kicker)} · move the most people</h3>
+    <p class="empty">${esc(plan.intro)}</p>
+    ${plan.items.map((item, index) => activityCard(item, index)).join("")}
+  </section>`;
+}
+
+function activityCard(item, index) {
+  const saved = state.work[item.id] || {};
+  const ownerHint = state.employees === "Just me" ? "You" : "Who owns this";
+  return `<article class="plan-card">
+    <h3>${index + 1}. ${esc(item.title)}</h3>
+    <p>${esc(item.text)}</p>
+    <div class="plan-meta">
+      <label>Owner
+        <input data-work="${esc(item.id)}" data-field="owner" value="${esc(saved.owner || "")}" placeholder="${esc(ownerHint)}" autocomplete="off" />
+      </label>
+      <label>Date
+        <input type="date" data-work="${esc(item.id)}" data-field="due" value="${esc(saved.due || "")}" />
+      </label>
+      <button type="button" class="small-primary" data-ask-activity="${esc(item.id)}">Ask the coach</button>
+    </div>
+    <p class="ai-help">AI: ${esc(item.ai)}</p>
+  </article>`;
+}
+
+function findActivity(id) {
+  return levelActivities().items.find((item) => item.id === id) || null;
+}
+
 function dealCard(deal) {
   const forward = nextId(deal.stage);
   const back = prevId(deal.stage);
@@ -809,49 +1153,6 @@ function dealCard(deal) {
   </article>`;
 }
 
-function character(kind) {
-  return `<div class="buddy buddy-${kind}" aria-hidden="true">
-    <svg class="coach-figure" viewBox="0 0 120 128">
-      <ellipse class="ground" cx="60" cy="120" rx="24" ry="5"/>
-      <g class="dots" fill="#c2410c">
-        <circle class="dot d1" cx="86" cy="24" r="3"/>
-        <circle class="dot d2" cx="97" cy="16" r="3.5"/>
-        <circle class="dot d3" cx="110" cy="10" r="4"/>
-      </g>
-      <g class="coach-body">
-        <g class="arm-wave">
-          <path d="M40 82 Q24 74 20 54" stroke="#e7b08a" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <circle cx="18" cy="50" r="6" fill="#ffd3b0"/>
-        </g>
-        <path d="M38 76c0-8 8-14 22-14s22 6 22 14v20c0 10-8 16-18 16H52c-8 0-14-6-14-14V76z" fill="#1f3d34"/>
-        <rect x="52" y="84" width="16" height="9" rx="3" fill="#c2410c"/>
-        <g class="head">
-          <circle cx="60" cy="50" r="24" fill="#ffd3b0"/>
-          <path d="M38 48c2-18 14-26 22-26s20 8 22 26c-4-8-12-12-22-12s-18 4-22 12z" fill="#1f3d34"/>
-          <ellipse cx="44" cy="56" rx="4.5" ry="2.4" fill="#f0a898" opacity="0.85"/>
-          <ellipse cx="76" cy="56" rx="4.5" ry="2.4" fill="#f0a898" opacity="0.85"/>
-          <g class="eyes" fill="#1c1915">
-            <ellipse class="eye" cx="51" cy="50" rx="3.1" ry="3.6"/>
-            <ellipse class="eye" cx="69" cy="50" rx="3.1" ry="3.6"/>
-          </g>
-          <g fill="#fff">
-            <circle cx="52.2" cy="48.6" r="1.1"/>
-            <circle cx="70.2" cy="48.6" r="1.1"/>
-          </g>
-          <path class="brow brow-left" d="M45 42 Q51 40 56 43" fill="none" stroke="#1f3d34" stroke-width="1.6" stroke-linecap="round"/>
-          <path class="brow brow-right" d="M64 43 Q70 40 75 42" fill="none" stroke="#1f3d34" stroke-width="1.6" stroke-linecap="round"/>
-          <path class="mouth mouth-smile" d="M50 60 Q60 70 70 60" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round"/>
-          <path class="mouth mouth-soft" d="M52 62 Q60 67 68 62" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round"/>
-          <circle class="mouth mouth-o" cx="60" cy="63" r="3.2" fill="none" stroke="#c2410c" stroke-width="2.2"/>
-        </g>
-        <g class="arm-point">
-          <path d="M84 82 Q102 76 112 62" stroke="#e7b08a" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <circle cx="114" cy="58" r="6" fill="#ffd3b0"/>
-        </g>
-      </g>
-    </svg>
-  </div>`;
-}
 
 function mark() {
   return `<svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
@@ -861,13 +1162,6 @@ function mark() {
   </svg>`;
 }
 
-function mood(advice) {
-  if (thinking) return "think";
-  if (!ready()) return "hello";
-  if (!state.offer.sentence.trim() || (advice.stage === "revenue" && state.status === "Stuck")) return "nudge";
-  if (advice.stage === "sale" || advice.stage === "revenue") return "cheer";
-  return "point";
-}
 
 function captureFocus() {
   const el = document.activeElement;
@@ -885,7 +1179,16 @@ function restoreFocus(focus) {
   }
 }
 
+function saveWork(target) {
+  if (!target || !target.dataset || !target.dataset.work) return false;
+  const current = state.work[target.dataset.work] || { owner: "", due: "" };
+  state.work[target.dataset.work] = { ...current, [target.dataset.field]: String(target.value || "").slice(0, 80) };
+  save({ think: false });
+  return true;
+}
+
 function onChange(event) {
+  if (saveWork(event.target)) return;
   const id = event.target.id;
   if (id === "projectPick") {
     switchProject(event.target.value);
@@ -904,6 +1207,7 @@ function onChange(event) {
 }
 
 function onInput(event) {
+  if (saveWork(event.target)) return;
   if (isSettingsField(event.target)) {
     if (event.target.name === "baseUrl" || event.target.name === "model") settingsDraft[event.target.name] = event.target.value;
     return;
@@ -911,6 +1215,16 @@ function onInput(event) {
   const id = event.target.id;
   if (["goal", "description", "context"].includes(id)) {
     state[id] = event.target.value.slice(0, 4000);
+    save();
+    return;
+  }
+  if (["buyer", "pain", "reach", "cut"].includes(id)) {
+    state.market[id] = event.target.value.slice(0, 4000);
+    save();
+    return;
+  }
+  if (["attraction", "upsell", "downsell", "continuity"].includes(id)) {
+    state.model[id] = event.target.value.slice(0, 4000);
     save();
     return;
   }
@@ -938,6 +1252,14 @@ function onSubmit(event) {
   if (form.id === "settings") {
     event.preventDefault();
     saveSettings(form);
+    return;
+  }
+  if (form.dataset.ask !== undefined) {
+    event.preventDefault();
+    const question = String(new FormData(form).get("question") || "").trim();
+    if (!question) return;
+    form.reset();
+    askCoach(question);
     return;
   }
   if (form.dataset.teach !== undefined) {
@@ -988,9 +1310,24 @@ function onClick(event) {
     clearKey();
     return;
   }
+  if (event.target.closest("[data-ask-toggle]")) {
+    askOpen = !askOpen;
+    render();
+    if (askOpen) document.querySelector(".ask-form input")?.focus();
+    return;
+  }
+  const help = event.target.closest("[data-ask-activity]");
+  if (help) {
+    const activity = findActivity(help.dataset.askActivity);
+    if (!activity) return;
+    askOpen = true;
+    askCoach(activity.prompt, activity.ai, activity.title);
+    return;
+  }
   if (event.target.closest("[data-think]")) {
     if (!meta.hasKey) {
       showSettings = true;
+      state.selected = "business";
       render();
       return;
     }
@@ -1008,6 +1345,8 @@ function onClick(event) {
   const cta = event.target.closest("[data-cta]");
   if (cta) {
     if (cta.dataset.focus) {
+      state.selected = cta.dataset.cta || state.selected;
+      render();
       document.getElementById(cta.dataset.focus)?.focus();
       return;
     }
@@ -1019,11 +1358,39 @@ function onClick(event) {
   }
   if (event.target.closest("[data-draft]")) {
     if (!ready()) {
+      state.selected = "business";
+      render();
       document.getElementById(gap())?.focus();
       return;
     }
     state.offer = draftOffer();
     state.selected = "offer";
+    save();
+    render();
+    return;
+  }
+  if (event.target.closest("[data-draft-market]")) {
+    if (!ready()) {
+      state.selected = "business";
+      render();
+      document.getElementById(gap())?.focus();
+      return;
+    }
+    state.market = draftMarket();
+    state.selected = "market";
+    save();
+    render();
+    return;
+  }
+  if (event.target.closest("[data-draft-model]")) {
+    if (!ready()) {
+      state.selected = "business";
+      render();
+      document.getElementById(gap())?.focus();
+      return;
+    }
+    state.model = draftModel();
+    state.selected = "model";
     save();
     render();
     return;
